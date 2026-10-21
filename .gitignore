@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Virtual environment
+.venv/
+
+# Data and generated files (too large for Git)
+data/
+models/
+
+# macOS / editors
+.DS_Store
+.vscode/
