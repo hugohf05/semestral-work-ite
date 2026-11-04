@@ -4,7 +4,7 @@
 
 ## Summary
 
-**Project question:** can we estimate a football player's market value using only their profile (age, position, league, contract) and their performance in one season?
+**Project question:** can we estimate a football player's market value using only their profile (age, position, league) and their performance in one season?
 
 - **Task type:** supervised regression (predict a number in euros).
 - **Data:** public Kaggle dataset "Football Data from Transfermarkt" (players from the main European leagues since ~2012).
@@ -34,7 +34,7 @@
 | | Description |
 | --- | --- |
 | **Input (training)** | Transfermarkt CSV files downloaded from Kaggle into `data/raw/` |
-| **Input (app)** | Player name from the dataset, **or** a manual profile: age, position, league, minutes, goals, assists, contract years left |
+| **Input (app)** | Player name from the dataset, **or** a manual profile: age, position, league, minutes, goals, assists |
 | **Output (training)** | Trained model file (`models/model.joblib`), metrics table, plots in `reports/` |
 | **Output (app)** | Predicted market value (€), real value if known, the difference (under/overvalued) and charts |
 | **Errors** | Clear messages for missing data files, an unknown player or invalid input values |
@@ -92,9 +92,10 @@ The final list is decided after the exploratory data analysis (EDA).
 | Performance | Cards | `appearances` | Probably small effect |
 | Context | Club's league | `clubs` / `competitions` | The Premier League inflates values |
 | Context | Plays in a European competition | `games` | Signal of a strong, visible club |
-| Contract | Years of contract left | `players` | Short contract → lower value |
 
-**Contract warning:** `players.csv` only stores the *current* contract, which is wrong for older seasons. Either use it only for the latest season or drop it, and justify the choice.
+**Contract:** dropped. `players.csv` only stores the *current* contract, which is wrong for older seasons.
+
+**Extra features** (starts, captain, team goals conceded, clean sheets) come from `game_lineups` and `club_games`; see [feature_sources.md](feature_sources.md). Decisions on leagues, valuation window and minimum minutes are in [data_quality.md](data_quality.md).
 
 ## Preprocessing
 
@@ -120,7 +121,7 @@ $$y = \log(\text{value}) \qquad \widehat{\text{value}} = e^{\hat{y}}$$
 2. Join each player-season with its end-of-season valuation (the trickiest join, by date).
 3. Compute age for that season and per-90 statistics.
 4. Filter out players with very few minutes (e.g. < 450), because their per-90 stats are noise.
-5. Handle missing values (height, foot, contract): impute with the median or drop, and justify.
+5. Handle missing values (height, foot): impute with the median or drop, and justify.
 6. Review outliers (extreme goals per 90 in players with few minutes).
 7. One-hot encode categorical features (position, league).
 8. Scale numeric features only for linear regression; Random Forest does not need it.
@@ -292,7 +293,7 @@ All tests run with `python test_main.py`; coverage is measured with `pytest-cov`
 | Goalkeepers and defenders rarely score | Attacking stats do not describe them | Use position as a feature or exclude goalkeepers |
 | No advanced stats (passes, dribbles, defending) | Accuracy ceiling | Future work: join with FBref |
 | Market inflation over the years | Same performance worth more recently | Add the season year as a feature |
-| Contract only known for the present | Invalid feature for old seasons | Use only where valid or drop |
+| Contract only known for the present | Invalid feature for old seasons | Dropped (decided) |
 | Data leakage (max value, future values) | Misleadingly good results | Only use information available at season end; tested |
 | Project scope larger than a "very simple program" | Risk of not finishing on time | Core (data → Random Forest → app) first; optional parts last |
 
@@ -313,5 +314,5 @@ All tests run with `python test_main.py`; coverage is measured with `pytest-cov`
 - [x] Create the `semestral-work-ite` repository with README and weekly plan
 - [x] Download the Kaggle dataset and record version and date
 - [x] Check the real columns of each table and the season range (see `docs/data_quality.md`)
-- [ ] Export the UML diagrams in `docs/diagrams/` to PNG and reference them in the README
+- [x] Export the UML diagrams in `docs/diagrams/` to PNG and reference them in the README
 - [ ] Decide whether to exclude goalkeepers or keep them with position as a feature

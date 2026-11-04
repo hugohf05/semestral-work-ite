@@ -45,6 +45,14 @@ License: CC0 (Public Domain). The data is **not** included in this repository.
 
 **Option B — manual.** Download the ZIP from the Kaggle page and run `unzip ~/Downloads/archive.zip -d data/raw`.
 
+## Design
+
+UML diagrams (PlantUML sources next to the images in [docs/diagrams/](docs/diagrams/)). Data decisions: [docs/data_quality.md](docs/data_quality.md); open problems and decisions: [docs/project_log.md](docs/project_log.md).
+
+![Training pipeline](docs/diagrams/1_activity_training_pipeline.png)
+![Modules and dependencies](docs/diagrams/2_component_diagram.png)
+![Player lookup in the app](docs/diagrams/3_sequence_prediction.png)
+
 ## Installation
 
 *TBD* — Python version, virtual environment and `pip install -r requirements.txt`.
@@ -66,7 +74,7 @@ License: CC0 (Public Domain). The data is **not** included in this repository.
 | Week | Goal | Done when |
 | --- | --- | --- |
 | 1 | Setup, design and data | Repo structure and data download; **UML diagrams** (`docs/diagrams/`) and **data quality report** ([docs/data_quality.md](docs/data_quality.md)) committed *before* the code; then `data_loader.py` + tests and a first EDA |
-| 2 | Feature engineering | `features.py` builds the player-season table (joins, age, per-90 stats, filters) + tests, incl. no-leakage checks |
+| 2 | Feature engineering | `features.py` builds the player-season table (top-5 leagues, joins, age, per-90 stats, starts and team clean sheets from `game_lineups`/`club_games`, filters) + tests, incl. no-leakage checks |
 | 3 | Models and evaluation | Baselines, linear regression, tuned Random Forest, metrics and plots, `main.py` CLI + tests |
 | 4 | Visual platform | `predictor.py` and Streamlit `app.py` (player lookup, manual estimate, model insights, top undervalued) + tests |
 | 5 | Finish and present | `docs/tests.md`, coverage report, final README, release `v1.0.0`, slides incl. visual explanation of the three method levels |
