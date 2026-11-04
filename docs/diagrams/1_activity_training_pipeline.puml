@@ -1,0 +1,26 @@
+@startuml
+title Activity Diagram - Training pipeline (main.py train)
+
+start
+:Load CSV tables\n(data_loader.py);
+:Keep club matches and seasons 2012-2025;
+:Aggregate per player and season\n(minutes, goals, assists, cards);
+:Join player profile and\nend-of-season valuation (target);
+:Compute age, per-90 stats and log(value);
+if (minutes >= 450?) then (yes)
+  :Keep row;
+else (no)
+  :Drop row;
+endif
+:Split by time\n(train / validation / test);
+fork
+  :Baselines\n(median by position and league);
+fork again
+  :Linear regression;
+fork again
+  :Random Forest\n(tuned with cross-validation);
+end fork
+:Evaluate all models on the test season\n(R2, MAE, RMSE);
+:Save Random Forest and plots;
+stop
+@enduml

@@ -300,7 +300,7 @@ All tests run with `python test_main.py`; coverage is measured with `pytest-cov`
 
 | Week | Goal | Deliverable |
 | --- | --- | --- |
-| 1 | Repo setup, data download, EDA, UML diagrams | README skeleton, diagrams, `data_loader.py` + tests |
+| 1 | Repo setup, data download, UML diagrams, data quality report, EDA | README skeleton, `docs/diagrams/`, `docs/data_quality.md` (committed before the code), `data_loader.py` + tests |
 | 2 | Player-season table: joins, aggregation, features, filters | `features.py` + tests |
 | 3 | Baselines, linear regression, Random Forest, tuning, evaluation | `models.py`, `evaluation.py`, `main.py` + tests |
 | 4 | Streamlit app and predictor | `predictor.py`, `app.py` + tests |
@@ -310,7 +310,8 @@ All tests run with `python test_main.py`; coverage is measured with `pytest-cov`
 
 - [x] Confirm with the teacher that this scope is acceptable for the semestral work (approved 2026-10-21)
 - [ ] Prepare the visual explanation of the three method levels (see *Why three levels*)
-- [ ] Create the `semestral-work-ite` repository with README and weekly plan
-- [ ] Download the Kaggle dataset and record version and date
-- [ ] Check the real columns of each table and the season range
+- [x] Create the `semestral-work-ite` repository with README and weekly plan
+- [x] Download the Kaggle dataset and record version and date
+- [x] Check the real columns of each table and the season range (see `docs/data_quality.md`)
+- [ ] Export the UML diagrams in `docs/diagrams/` to PNG and reference them in the README
 - [ ] Decide whether to exclude goalkeepers or keep them with position as a feature

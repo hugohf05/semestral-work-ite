@@ -65,7 +65,7 @@ License: CC0 (Public Domain). The data is **not** included in this repository.
 
 | Week | Goal | Done when |
 | --- | --- | --- |
-| 1 | Setup and data | Repo structure, data downloaded and explored, UML diagrams, `data_loader.py` + tests |
+| 1 | Setup, design and data | Repo structure and data download; **UML diagrams** (`docs/diagrams/`) and **data quality report** ([docs/data_quality.md](docs/data_quality.md)) committed *before* the code; then `data_loader.py` + tests and a first EDA |
 | 2 | Feature engineering | `features.py` builds the player-season table (joins, age, per-90 stats, filters) + tests, incl. no-leakage checks |
 | 3 | Models and evaluation | Baselines, linear regression, tuned Random Forest, metrics and plots, `main.py` CLI + tests |
 | 4 | Visual platform | `predictor.py` and Streamlit `app.py` (player lookup, manual estimate, model insights, top undervalued) + tests |

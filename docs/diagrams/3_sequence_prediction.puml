@@ -1,0 +1,20 @@
+@startuml
+title Sequence Diagram - Player lookup in the app
+
+actor User
+participant "app.py" as App
+participant "predictor.py" as Predictor
+participant "Random Forest\n(model.joblib)" as Model
+
+User -> App : search player name
+App -> Predictor : predict(player, season)
+Predictor -> Predictor : build features\n(age, per-90 stats, league...)
+Predictor -> Model : predict(features)
+Model --> Predictor : log(value)
+Predictor --> App : value in EUR\n(exp of the prediction)
+App --> User : predicted vs. real value,\nunder/overvalued label
+
+alt player not found or invalid input
+  App --> User : error message
+end
+@enduml

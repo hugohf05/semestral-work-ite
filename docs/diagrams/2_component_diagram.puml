@@ -1,0 +1,27 @@
+@startuml
+title Component Diagram - Modules and dependencies
+!pragma layout smetana
+
+package "src" {
+  [data_loader.py] as loader
+  [features.py] as features
+  [models.py] as models
+  [evaluation.py] as evaluation
+  [predictor.py] as predictor
+}
+[main.py\n(CLI: train / evaluate / predict)] as main
+[app.py\n(Streamlit)] as app
+database "data/raw\n(Kaggle CSV)" as csv
+file "models/model.joblib" as model
+
+main --> loader
+main --> features
+main --> models
+main --> evaluation
+app --> predictor
+features --> loader
+predictor --> features
+loader ..> csv : reads
+models ..> model : saves
+predictor ..> model : loads
+@enduml
