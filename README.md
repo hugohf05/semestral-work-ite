@@ -20,7 +20,30 @@ Transfermarkt market values are hard to guess with a simple rule. This program:
 ## Data
 
 Kaggle dataset [Football Data from Transfermarkt](https://www.kaggle.com/datasets/davidcariboo/player-scores) (`davidcariboo/player-scores`).
-The data is **not** included in this repository. Version and download date: *TBD*.
+License: CC0 (Public Domain). The data is **not** included in this repository.
+
+- **Data coverage:** updates are paused; the dataset is current to 2026-07-06 (`player_valuations` ends on 2026-06-12, `appearances` on 2026-06-28). Last complete season: 2025/26.
+- **Download date:** *TBD*
+
+### Getting the data
+
+**Option A — Kaggle API (used in this project).** The token is a secret: never commit it or share it.
+
+1. Install the client (inside the virtual environment): `pip install kaggle`
+2. On kaggle.com go to *Settings → API → Create New Token* and copy the token (it is shown only once).
+3. Save it outside the repository with restricted permissions:
+   ```bash
+   mkdir -p ~/.kaggle
+   pbpaste > ~/.kaggle/access_token   # macOS: pastes the clipboard; on Linux use: echo "<token>" > ...
+   chmod 600 ~/.kaggle/access_token
+   ```
+   Alternative: set the `KAGGLE_API_TOKEN` environment variable.
+4. Download and unzip into `data/raw/`:
+   ```bash
+   kaggle datasets download davidcariboo/player-scores -p data/raw --unzip
+   ```
+
+**Option B — manual.** Download the ZIP from the Kaggle page and run `unzip ~/Downloads/archive.zip -d data/raw`.
 
 ## Installation
 
