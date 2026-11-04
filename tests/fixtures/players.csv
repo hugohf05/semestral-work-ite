@@ -1,0 +1,4 @@
+"player_id","name","date_of_birth","position","sub_position","foot","height_in_cm","contract_expiration_date","market_value_in_eur","highest_market_value_in_eur"
+"10","Miroslav Klose","1978-06-09 00:00:00","Attack","Centre-Forward","right","184",,"1000000","30000000"
+"26","Roman Weidenfeller ","1980-08-06 00:00:00","Goalkeeper","Goalkeeper","left","190","2018-06-30 00:00:00","750000","8000000"
+"99","Unknown Date","not a date","Midfield","Central Midfield",,,,"500000","500000"
