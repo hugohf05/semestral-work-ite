@@ -84,7 +84,7 @@ The final list is decided after the exploratory data analysis (EDA).
 
 | Group | Feature | Source | Why it should matter |
 | --- | --- | --- | --- |
-| Profile | Age | Birth date vs. season date | Value rises until ~25–27, then drops |
+| Profile | Age | Birth date vs. season date | EDA: correlation −0.39 with log value; median value falls after 23 (selection bias makes teenagers look expensive) |
 | Profile | Position and sub-position | `players` | Forwards are usually worth more than goalkeepers |
 | Profile | Height, preferred foot | `players` | Probably small effect; to check |
 | Performance | Minutes and matches played | Sum of `appearances` | Shows whether the player is a starter |
@@ -219,7 +219,7 @@ Hyperparameter search uses time-based cross-validation (`TimeSeriesSplit`) or gr
 ### Further analysis
 
 - **Feature importance:** with *permutation importance*.
-- **Age curve:** partial dependence plot; should peak around 25–27.
+- **Age curve:** partial dependence plot; the raw EDA median falls with age (selection bias), so check what the model learns once minutes and league are taken into account.
 - **Undervalued / overvalued players:** largest gap between predicted and real value in the test set; discuss 3–5 cases.
 - **Error by group:** does the model fail more for goalkeepers, a given league or stars?
 
