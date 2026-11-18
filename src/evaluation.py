@@ -7,6 +7,7 @@ reported both on that scale and converted back to euros.
 import matplotlib
 import numpy as np
 import pandas as pd
+from sklearn.inspection import permutation_importance
 
 matplotlib.use("Agg")  # draw to files, no window needed
 import matplotlib.pyplot as plt  # noqa: E402  (must come after matplotlib.use)
@@ -103,6 +104,83 @@ def plot_predicted_vs_real(y_true, y_pred, path, title="Predicted vs. real value
     limits = [min(np.min(y_true), np.min(y_pred)), max(np.max(y_true), np.max(y_pred))]
     ax.plot(limits, limits, color="red", label="Perfect prediction")
     ax.set(xlabel="Real log10(€)", ylabel="Predicted log10(€)", title=title)
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(path, dpi=120)
+    plt.close(fig)
+    return path
+
+
+def feature_importance(model, X, y, n_repeats=5, random_state=42):
+    """Measure how much each feature matters with permutation importance.
+
+    The values of one column are shuffled, which breaks its link with the
+    target; the increase in MAE (log scale) is the importance of that column.
+    Categorical columns such as ``league`` are shuffled as a whole.
+
+    :param model: Fitted model with ``predict``
+    :param X: Feature DataFrame (validation or test, never training)
+    :param y: Real values in log10 euros
+    :param n_repeats: Times each column is shuffled (results are averaged)
+    :param random_state: Seed so the result is reproducible
+    :return: DataFrame with ``importance`` and ``std``, most important first
+    """
+    result = permutation_importance(model, X, y, scoring="neg_mean_absolute_error",
+                                    n_repeats=n_repeats, random_state=random_state)
+    importance = pd.DataFrame({"importance": result.importances_mean,
+                               "std": result.importances_std}, index=X.columns)
+    return importance.sort_values("importance", ascending=False)
+
+
+def age_curve(model, X, ages=range(18, 37)):
+    """Compute the model's average prediction when only the age changes.
+
+    For every age, all players get that age and keep their other features;
+    the mean prediction is converted back to euros (partial dependence).
+
+    :param model: Fitted model with ``predict``
+    :param X: Feature DataFrame with an ``age`` column
+    :param ages: Ages to evaluate
+    :return: DataFrame with ``age`` and ``predicted_eur``
+    """
+    rows = []
+    for age in ages:
+        changed = X.copy()
+        changed["age"] = age
+        rows.append({"age": age, "predicted_eur": 10 ** model.predict(changed).mean()})
+    return pd.DataFrame(rows)
+
+
+def plot_feature_importance(importance, path, title="Permutation importance"):
+    """Save a horizontal bar chart of ``feature_importance`` results.
+
+    :param importance: Output of ``feature_importance``
+    :param path: Output PNG file
+    :param title: Plot title
+    :return: ``path``
+    """
+    ordered = importance.iloc[::-1]  # most important at the top
+    fig, ax = plt.subplots(figsize=(6, 4))
+    ax.barh(ordered.index, ordered["importance"], xerr=ordered["std"])
+    ax.set(xlabel="Increase in MAE (log10 €) when shuffled", title=title)
+    fig.tight_layout()
+    fig.savefig(path, dpi=120)
+    plt.close(fig)
+    return path
+
+
+def plot_age_curves(curves, path, title="Effect of age with other features fixed"):
+    """Save one line per model from ``age_curve`` results.
+
+    :param curves: Dict ``{model name: age_curve DataFrame}``
+    :param path: Output PNG file
+    :param title: Plot title
+    :return: ``path``
+    """
+    fig, ax = plt.subplots(figsize=(7, 3.5))
+    for name, curve in curves.items():
+        ax.plot(curve["age"], curve["predicted_eur"] / 1e6, marker="o", label=name)
+    ax.set(xlabel="Age", ylabel="Average predicted value (M€)", title=title)
     ax.legend()
     fig.tight_layout()
     fig.savefig(path, dpi=120)
