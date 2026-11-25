@@ -7,18 +7,28 @@ from src import features
 
 
 def make_games():
-    """Three matches of season 2023 (two Premier League, one LaLiga) and one cup match."""
+    """Season 2023: two Premier League games of club 100, one LaLiga game and one Champions League game.
+
+    Club 100 wins 2-1 and draws 1-1 in the league -> 4 points in 2 games = 2.0 per game.
+    """
     return pd.DataFrame({
         "game_id": [1, 2, 3, 4],
+        "competition_id": ["GB1", "GB1", "ES1", "CL"],
         "season": [2023, 2023, 2023, 2023],
+        "home_club_id": [100, 200, 300, 100],
+        "away_club_id": [200, 100, 400, 500],
+        "home_club_goals": [2, 1, 0, 3],
+        "away_club_goals": [1, 1, 1, 0],
     })
 
 
 def make_appearances():
-    """Player 7 plays 2 Premier League matches and 1 LaLiga match; player 8 plays only a cup match."""
+    """Player 7 plays 2 Premier League matches (club 100) and 1 LaLiga match (club 300);
+    player 8 plays only a Champions League match."""
     return pd.DataFrame({
         "game_id": [1, 2, 3, 4],
         "player_id": [7, 7, 7, 8],
+        "player_club_id": [100, 100, 300, 100],
         "competition_id": ["GB1", "GB1", "ES1", "CL"],
         "minutes_played": [90, 90, 45, 90],
         "goals": [1, 0, 1, 3],
@@ -57,6 +67,7 @@ def test_aggregate_seasons_sums_only_league_matches():
 def test_aggregate_seasons_picks_league_with_most_minutes():
     seasons = features.aggregate_seasons(make_appearances(), make_games())
     assert seasons.iloc[0].league == "GB1"  # 180 minutes in GB1 vs. 45 in ES1
+    assert seasons.iloc[0].club_id == 100
 
 
 def test_season_targets_uses_latest_valuation_in_window():
@@ -116,3 +127,24 @@ def test_build_player_seasons_drops_missing_birth_date_and_position():
 
 def test_no_market_value_column_is_used_as_feature():
     assert not any("value" in column for column in features.FEATURE_COLUMNS)
+
+
+def test_team_points_per_game_counts_home_and_away_league_games():
+    points = features.team_points_per_game(make_games()).set_index("club_id")["team_points_per_game"]
+    assert points[100] == pytest.approx(2.0)  # win at home + draw away, Champions League ignored
+    assert points[200] == pytest.approx(0.5)  # loss away + draw at home
+    assert points[300] == 0 and points[400] == 3
+    assert 500 not in points.index  # only played a European game
+
+
+def test_european_minutes_only_counts_european_cups():
+    minutes = features.european_minutes(make_appearances(), make_games())
+    assert minutes.to_dict("records") == [{"player_id": 8, "season": 2023, "european_minutes": 90}]
+
+
+def test_build_player_seasons_adds_club_features():
+    row = features.build_player_seasons(
+        make_players(), make_appearances(), make_games(), make_valuations(), min_minutes=200
+    ).iloc[0]
+    assert row.team_points_per_game == pytest.approx(2.0)
+    assert row.european_minutes == 0  # player 7 did not play in Europe: filled with 0

@@ -19,7 +19,10 @@ APPEARANCE_COLUMNS = [
     "game_id", "player_id", "player_club_id", "date", "competition_id",
     "yellow_cards", "red_cards", "goals", "assists", "minutes_played",
 ]
-GAME_COLUMNS = ["game_id", "competition_id", "season", "date", "competition_type"]
+GAME_COLUMNS = [
+    "game_id", "competition_id", "season", "date", "competition_type",
+    "home_club_id", "away_club_id", "home_club_goals", "away_club_goals",
+]
 VALUATION_COLUMNS = [
     "player_id", "date", "market_value_in_eur",
     "player_club_domestic_competition_id",

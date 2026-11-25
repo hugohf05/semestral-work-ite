@@ -22,6 +22,8 @@ def make_table(rows=200, seed=0):
         "assists_per90": rng.uniform(0, 0.5, rows),
         "yellow_cards_per90": rng.uniform(0, 0.3, rows),
         "red_cards": rng.integers(0, 2, rows),
+        "team_points_per_game": rng.uniform(0.5, 2.5, rows),
+        "european_minutes": rng.choice([0, 0, 360, 900], rows),
     })
     table[TARGET_COLUMN] = 6 + 0.5 * (table.league == "GB1") - 0.03 * (table.age - 18)
     return table
@@ -72,3 +74,14 @@ def test_models_handle_unseen_category():
     new = table.head(1).copy()
     new["league"] = "FR1"
     assert np.isfinite(model.predict(new[FEATURE_COLUMNS])).all()
+
+
+def test_tune_random_forest_tries_every_combination():
+    table = make_table(rows=300)
+    train, validation, _ = models.time_split(table)
+    grid = {"max_depth": [3, None], "min_samples_leaf": [1, 5], "max_features": ["sqrt"]}
+    best, results = models.tune_random_forest(train, validation, grid, n_estimators=10)
+    assert len(results) == 4
+    assert results["mae_log"].is_monotonic_increasing  # best first
+    assert set(best) == set(grid)
+    assert best["max_depth"] in (3, None)  # NaN turned back into None
