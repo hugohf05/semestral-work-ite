@@ -68,6 +68,7 @@ def error_by_value_range(y_true, y_pred):
     :return: DataFrame with one row per value range
     """
     frame = pd.DataFrame({"true": np.asarray(y_true), "error": np.asarray(y_pred) - np.asarray(y_true)})
+    # pd.cut puts each real value (in euros) into one of the VALUE_RANGES bins
     frame["range"] = pd.cut(10 ** frame["true"], VALUE_RANGES, labels=VALUE_RANGE_LABELS, right=False)
     return frame.groupby("range", observed=False).agg(
         players=("error", "size"),

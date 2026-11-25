@@ -5,6 +5,8 @@ scikit-learn interface ``fit(X, y)`` / ``predict(X)``, so they can be compared
 with the same code.
 """
 
+from itertools import product
+
 import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator, RegressorMixin
@@ -61,6 +63,7 @@ class MedianBaseline(BaseEstimator, RegressorMixin):
         y = pd.Series(np.asarray(y), index=X.index)
         self.global_median_ = float(y.median())
         columns = list(self.group_columns)
+        # e.g. {("Attack", "GB1"): 7.1, ("Defender", "ES1"): 6.4, ...}
         self.medians_ = y.groupby([X[c] for c in columns]).median().to_dict() if columns else {}
         return self
 
@@ -73,6 +76,7 @@ class MedianBaseline(BaseEstimator, RegressorMixin):
         columns = list(self.group_columns)
         if not columns:
             return np.full(len(X), self.global_median_)
+        # One tuple per row, e.g. ("Attack", "GB1"); a single column gives 1-tuples
         keys = X[columns].itertuples(index=False, name=None)
         return np.array([self.medians_.get(key if len(columns) > 1 else key[0],
                                            self.global_median_) for key in keys])
@@ -87,6 +91,8 @@ def _preprocessor(numeric_columns, scale):
     """
     numeric = StandardScaler() if scale else "passthrough"
     return ColumnTransformer([
+        # One-hot: "league" becomes 0/1 columns (league_GB1, league_ES1, ...);
+        # an unseen category becomes all zeros instead of an error
         ("categorical", OneHotEncoder(handle_unknown="ignore"), CATEGORICAL),
         ("numeric", numeric, numeric_columns),
     ])
@@ -146,3 +152,43 @@ def split_xy(table):
     :return: Tuple ``(X, y)``
     """
     return table[FEATURE_COLUMNS], table[TARGET_COLUMN]
+
+
+PARAM_GRID = {
+    "max_depth": [10, 20, None],
+    "min_samples_leaf": [1, 5, 10],
+    "max_features": ["sqrt", 0.5],
+}
+
+
+def tune_random_forest(train, validation, grid=PARAM_GRID, n_estimators=200):
+    """Choose Random Forest hyperparameters with the validation season.
+
+    Every combination of ``grid`` is trained on ``train`` and scored by MAE
+    (log10 euros) on ``validation``; the test season is never used here.
+
+    :param train: Training table
+    :param validation: Validation table
+    :param grid: Dict ``{hyperparameter: list of values to try}``
+    :param n_estimators: Trees per forest during the search (fewer = faster)
+    :return: Tuple ``(best_params, results)``; ``results`` is a DataFrame
+        with one row per combination, best first
+    """
+    X_train, y_train = split_xy(train)
+    X_val, y_val = split_xy(validation)
+    rows = []
+    # product(...) yields every combination, e.g. (10, 1, "sqrt"), (10, 1, 0.5), ...
+    for values in product(*grid.values()):
+        params = dict(zip(grid.keys(), values))
+        model = make_random_forest(n_estimators=n_estimators, **params).fit(X_train, y_train)
+        mae = np.abs(model.predict(X_val) - y_val).mean()
+        rows.append({**params, "mae_log": mae})
+    results = pd.DataFrame(rows).sort_values("mae_log").reset_index(drop=True)
+    best = {key: results.loc[0, key] for key in grid}
+    # pandas stores None as NaN in a mixed column; scikit-learn needs None back
+    best = {key: (None if pd.isna(value) else value) for key, value in best.items()}
+    # Convert numpy numbers to plain Python ints so they print and save cleanly
+    for key in ("max_depth", "min_samples_leaf"):
+        if best.get(key) is not None:
+            best[key] = int(best[key])
+    return best, results
