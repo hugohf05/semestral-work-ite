@@ -1,26 +1,38 @@
 @startuml
-title Activity Diagram - Training pipeline (main.py train)
+title Activity Diagram - Training and evaluation (main.py train / evaluate)
 
+|features.py|
 start
 :Load CSV tables\n(data_loader.py);
-:Keep club matches and seasons 2012-2025;
-:Aggregate per player and season\n(minutes, goals, assists, cards);
-:Join player profile and\nend-of-season valuation (target);
-:Compute age, per-90 stats and log(value);
+:Keep top-5 league matches\nand add the season from games;
+:Aggregate per player and season\n(minutes, matches, goals, assists, cards,\nmain league and club);
 if (minutes >= 450?) then (yes)
-  :Keep row;
 else (no)
   :Drop row;
+  stop
 endif
-:Split by time\n(train / validation / test);
-fork
-  :Baselines\n(median by position and league);
-fork again
-  :Linear regression;
-fork again
-  :Random Forest\n(tuned with cross-validation);
-end fork
-:Evaluate all models on the test season\n(R2, MAE, RMSE);
-:Save Random Forest and plots;
+:Join end-of-season valuation\n(latest between April and July);
+:Join player profile\n(birth date, position);
+if (valuation, birth date and\nposition available?) then (yes)
+else (no)
+  :Drop row;
+  stop
+endif
+:Add club points per game\nand European cup minutes;
+:Compute age, per-90 stats\nand log10(value);
+
+|models.py|
+:Split by season\ntrain 2012-2023 / validation 2024 / test 2025;
+:Try 18 Random Forest settings:\nfit on train, MAE on validation;
+:Refit best setting on 2012-2024;
+|predictor.py|
+:Save models/model.joblib;
+note right: end of\n**main.py train**
+
+|evaluation.py|
+:Fit baselines and linear regression\non 2012-2024;
+:Measure all 4 models once\non the test season 2025;
+:Write metrics, plots and\nlargest gaps to reports/;
+note right: **main.py evaluate**
 stop
 @enduml
