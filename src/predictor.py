@@ -78,3 +78,25 @@ def predict_value(model, rows):
     """
     # The model works in log10 euros; 10 ** x converts back to euros
     return 10 ** model.predict(rows[FEATURE_COLUMNS])
+
+
+def undervalued_players(table, model, season, max_age=30, min_value=1e6, top=20):
+    """List the players whose predicted value is furthest above their real value.
+
+    Veterans and very cheap players are filtered out: their large gaps come
+    from the model's weakness at the end of careers, not from hidden talent.
+
+    :param table: Player-season table
+    :param model: Fitted model that predicts log10 euros
+    :param season: Season to analyse (use the test season for honest results)
+    :param max_age: Keep players younger than this
+    :param min_value: Keep players worth at least this many euros
+    :param top: Number of players to return
+    :return: DataFrame sorted by ``ratio`` (predicted / real), largest first
+    """
+    rows = table[(table["season"] == season) & (table["age"] < max_age)
+                 & (table["market_value_in_eur"] >= min_value)].copy()
+    rows["predicted_eur"] = predict_value(model, rows)
+    rows["ratio"] = rows["predicted_eur"] / rows["market_value_in_eur"]
+    columns = ["name", "age", "position", "league", "market_value_in_eur", "predicted_eur", "ratio"]
+    return rows.sort_values("ratio", ascending=False)[columns].head(top).reset_index(drop=True)

@@ -65,3 +65,17 @@ def test_find_player_exact_name_beats_partial_matches():
     table = pd.DataFrame({"name": ["Pedri", "Pedrinho"], "season": [2024, 2024],
                           "market_value_in_eur": [100e6, 1e6]})
     assert predictor.find_player(table, "pedri")["name"].item() == "Pedri"
+
+
+def test_undervalued_players_filters_and_sorts():
+    table = pd.DataFrame({
+        "name": ["Young cheap", "Veteran", "Too cheap", "Other season"],
+        "season": [2025, 2025, 2025, 2024],
+        "age": [22.0, 37.0, 22.0, 22.0],
+        "market_value_in_eur": [2e6, 2e6, 1e5, 2e6],
+        **{column: [0, 0, 0, 0] for column in predictor.FEATURE_COLUMNS
+           if column not in ("season", "age")},
+    })
+    result = predictor.undervalued_players(table, ConstantModel(), season=2025)
+    assert result["name"].tolist() == ["Young cheap"]  # veteran, too cheap and 2024 removed
+    assert result.loc[0, "ratio"] == pytest.approx(5)  # 10 M€ predicted / 2 M€ real
