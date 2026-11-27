@@ -140,36 +140,108 @@ A baseline is a naive rule used as a yardstick: if the model does not beat it, i
 
 ### 2. Linear regression
 
-The value is a weighted sum of the features; the model learns one weight per feature:
+**Idea:** every feature pushes the predicted value up or down by a fixed amount, and the effects are added.
 
 $$\hat{y} = w_0 + w_1 x_1 + w_2 x_2 + \dots + w_n x_n$$
 
-- Training finds the weights that minimise the sum of squared errors.
-- **Advantage:** very interpretable. Since we predict log value, a weight of 0.3 on "goals per 90" means each extra goal per 90 multiplies the value by e^0.3 ≈ 1.35 (+35 %).
-- **Limitation:** only straight-line effects. For the age curve, add age² as an extra feature.
+- $\hat{y}$ is the predicted log10 value, $x_i$ are the features and $w_i$ their weights (coefficients).
+- **Training** finds the weights that minimise the sum of squared errors $\sum (y - \hat{y})^2$ (ordinary least squares). There is one exact solution; nothing random is involved.
+- **Preparation in our pipeline** (`make_linear_regression`): position and league are one-hot encoded (one 0/1 column per category); numeric features are standardised (mean 0, standard deviation 1) so the weights are comparable; `age²` is added so that a straight-line model can bend the age effect into a curve.
+
+**How to read a weight.** We predict log10(value), so adding $w$ to the log means **multiplying the value by $10^{w}$**. Effects estimated on seasons 2012–2024, all other features fixed:
+
+| Change | Effect on value |
+| --- | --- |
+| Playing in the Premier League instead of LaLiga | ×1.96 |
+| Team gets +0.5 points per game | ×1.69 |
+| +1,000 league minutes | ×2.07 |
+| +900 minutes in European cups (about 10 games) | ×2.06 |
+| +0.1 goals per 90 | ×1.12 |
+| One season later (market inflation) | ×1.09 |
+| Goalkeeper instead of forward | ×0.76 |
+
+**Limitations:**
+- Effects are **additive**: +0.1 goals per 90 is worth ×1.12 for every player, whether he plays for the champion or for a relegated club.
+- Curves must be added by hand (`age²`), and the shape is then forced: a parabola.
 
 ### 3. Random Forest (main method)
 
-**A decision tree** is a series of yes/no questions, e.g. "plays in the Premier League?" → "under 24?" → "more than 2,000 minutes?". Each leaf predicts the mean value of the training players that reached it. A single tree tends to memorise the data (overfitting).
+#### Step 1: one decision tree
 
-**A Random Forest is many different trees that vote:**
+A decision tree predicts with a series of yes/no questions about the features. Each final box (leaf) predicts the **mean log value of the training players that ended there**. A real tree trained on our data and limited to 3 levels (for illustration):
 
-1. Train e.g. 300 trees.
-2. Each tree sees a random sample of rows (*bootstrap*) and, at each split, only a random subset of features.
-3. The final prediction is the mean of all trees.
+```
+                    team_points_per_game <= 1.54 ?
+                   /                               \
+                 yes                                no  (strong club)
+        age <= 32.0 ?                        age <= 31.6 ?
+        /          \                         /            \
+ matches <= 23.5?   age <= 33.9?     minutes <= 1,481?    age <= 34.6?
+   /       \          /     \          /        \           /      \
+ 6.42     6.75      6.17   5.83      6.97      7.33       6.72     6.24
+ 2.6 M€   5.6 M€   1.5 M€  0.7 M€    9.3 M€   21.4 M€    5.2 M€   1.7 M€
+```
 
-Each tree makes different mistakes, so averaging cancels them out.
+**How the tree is built:** at each box, the algorithm tries every feature and every cut point and keeps the question that makes the two groups as **homogeneous** as possible (the smallest squared error around each group's mean). Then it repeats inside each group. Club strength is the first question because it separates expensive from cheap players best.
 
-**Why it fits:** it captures interactions (young *and* Premier League) and curves (age) automatically, needs no scaling and gives feature importances.
+**Problem:** a deep tree keeps splitting until each leaf holds one or two players, so it memorises the training data (**overfitting**). Small changes in the data produce a very different tree.
 
-| Hyperparameter (scikit-learn) | Controls | Values to try |
+#### Step 2: many different trees, averaged
+
+A Random Forest trains **300 trees** and makes them different on purpose:
+
+1. **Bootstrap:** each tree is trained on a random sample of the 23,903 training rows, drawn with replacement (some players appear twice, about a third not at all).
+2. **Random features:** at every question, the tree may only choose among a random half of the features (`max_features=0.5`), so not all trees start with club strength.
+3. **Average:** each tree has thousands of leaves (about 11,000 in our model), but a given player follows **one path** in each tree (every question sends him left *or* right) and lands in **exactly one leaf**. That leaf's value is the tree's prediction for him. The forest's prediction is the mean of these 300 leaf values.
+
+```
+ player ──► tree 1 → 7.10 ┐
+       ──► tree 2 → 7.35 │
+       ──► ...           ├──► mean = 7.22 ──► 10^7.22 ≈ 16.6 M€
+       ──► tree 300 → 7.18┘
+```
+
+Each tree overfits in its own way; the errors point in different directions and **cancel out in the average**, while the real pattern, shared by all trees, remains.
+
+#### Linear regression vs. Random Forest
+
+| | Linear regression | Random Forest |
 | --- | --- | --- |
-| `n_estimators` | Number of trees | 100, 300, 500 |
-| `max_depth` | Max tree depth (lower = less overfitting) | 5, 10, 20, None |
-| `min_samples_leaf` | Min players per leaf | 1, 5, 10 |
-| `max_features` | Features considered per split | `sqrt`, 0.5, all |
+| Shape of the model | One weighted sum | 300 trees of yes/no questions, averaged |
+| Curves (e.g. age) | Only if added by hand (`age²`) | Learned automatically |
+| Interactions (e.g. young **and** strong club) | No, each effect is fixed | Yes: a question inside another question |
+| Needs scaling | Yes | No: a question like "age ≤ 32" works with any unit |
+| Interpretation | One readable weight per feature | Permutation importance and age curve |
+| Predicts outside the training range | Yes (can extrapolate) | No: a leaf is always a mean of real players, so it never predicts above the most expensive ones seen |
+| Test R² (season 2025) | 0.776 | **0.809** |
 
-Optional: a gradient boosting model for comparison.
+The last two rows explain our results: the forest wins because it captures interactions, but only by 0.03 in R², so most of the signal is additive. The forest cannot predict beyond the values it has seen and averages towards typical players, which is one reason why stars are underestimated.
+
+#### Hyperparameters and how they were chosen
+
+Hyperparameters are settings chosen **before** training (the model does not learn them). We tested every combination of the grid in `models.PARAM_GRID` (18 forests of 200 trees), trained on 2012–2023 and scored by MAE (log10) on the validation season 2024. The test season was not used.
+
+| Hyperparameter | What it controls | Values tried | Chosen |
+| --- | --- | --- | --- |
+| `max_depth` | Maximum number of questions from top to leaf; fewer = simpler trees | 10, 20, None (no limit) | **20** |
+| `min_samples_leaf` | Minimum players in a leaf; more = smoother predictions | 1, 5, 10 | **1** |
+| `max_features` | Share of features each question may choose from; fewer = more different trees | `sqrt` (≈ 4 of 19 columns), 0.5 | **0.5** |
+| `n_estimators` | Number of trees; more = stabler mean, slower | not searched | **300** (200 during the search) |
+
+Results (validation MAE in log10; full table printed by `python main.py train`):
+
+| Setting | Best MAE | Worst MAE |
+| --- | --- | --- |
+| `max_features=0.5` | 0.1826 | 0.1980 |
+| `max_features=sqrt` | 0.1932 | 0.2225 |
+| `max_depth=10` | 0.1963 | 0.2225 |
+| `max_depth=20` or None | 0.1826 | 0.2059 |
+
+- `max_features` mattered most: with `sqrt` a tree often cannot ask about club strength or age at all.
+- Depth 10 is too shallow; 20 and no limit are practically equal (0.1826 vs. 0.1829).
+- `min_samples_leaf` changed little: averaging 300 trees already controls overfitting.
+- Best vs. worst combination: 0.183 vs. 0.223. Adding the club features (week 4) improved the MAE from 0.275 to 0.183, much more than any tuning: **better data beat better settings**.
+- `n_estimators` was not searched: more trees never make a forest worse, only slower; 300 is a usual value.
 
 ### Why three levels
 
@@ -183,7 +255,7 @@ If the Random Forest does not beat the linear regression, that is also a valid c
 **To do (presentation + app "Model insights" page):** explain how each of the three levels works, with visuals:
 - Diagram of the three levels (baseline → linear → Random Forest) and the question each comparison answers.
 - Baseline: bar chart of median value by position and league.
-- Linear regression: fitted line or coefficient chart (e.g. "+1 goal per 90 → ×1.35 value").
+- Linear regression: coefficient chart (e.g. "Premier League → ×1.96 value").
 - Random Forest: one small example tree + "many trees vote → average" diagram.
 - Bar chart comparing the metrics of the three levels.
 
@@ -191,29 +263,36 @@ If the Random Forest does not beat the linear regression, that is also a valid c
 
 ### Data split (by time)
 
-Train on older seasons, evaluate on the most recent ones, as the model would be used in reality.
+Train on older seasons, evaluate on the most recent ones, as the model would be used in reality. A random split would let the model see 2025 players while being tested on 2024 ones.
 
-| Set | Seasons (approx.) | Use |
-| --- | --- | --- |
-| Train | First available → 3 seasons before the last | Fit the models |
-| Validation | Second-to-last full season | Choose hyperparameters |
-| Test | Last full season | Final result, measured once |
+| Set | Seasons | Rows | Use |
+| --- | --- | --- | --- |
+| Train | 2012–2023 | 22,038 | Fit the models during the hyperparameter search |
+| Validation | 2024 | 1,865 | Choose hyperparameters and features |
+| Test | 2025 | 1,964 | Final result, measured **once** (`python main.py evaluate`) |
 
-Hyperparameter search uses time-based cross-validation (`TimeSeriesSplit`) or grouped by player (`GroupKFold`), so the same player is never in both train and validation.
+After the search, the final model is refitted on 2012–2024 (train + validation) with the chosen hyperparameters. A single validation season was used instead of cross-validation, to keep the search simple and fast.
 
 ### Metrics
 
-| Metric | Meaning | Scale |
-| --- | --- | --- |
-| R² | Share of value variation explained (1 = perfect, 0 = same as predicting the mean) | Log value |
-| MAE | Mean absolute error | Euros |
-| Relative MAE | "On average we are X % off" | Percent |
-| RMSE | Like MAE but punishes large errors more | Log value and euros |
+For each player $i$ of the $n$ evaluated: $y_i$ = real log10 value, $\hat{y}_i$ = predicted log10 value, error $e_i = \hat{y}_i - y_i$. In euros: $v_i = 10^{y_i}$ and $\hat{v}_i = 10^{\hat{y}_i}$. All metrics are in `src/evaluation.py` (`regression_metrics`).
+
+| Metric | Formula | What it measures | Test 2025 (RF) | How to read it |
+| --- | --- | --- | --- | --- |
+| **R²** (coefficient of determination) | $1 - \dfrac{\sum e_i^2}{\sum (y_i - \bar{y})^2}$ | Share of the variation in (log) value explained by the model, compared with always predicting the mean $\bar{y}$ | 0.809 | 1 = perfect, 0 = no better than the mean, < 0 = worse than the mean. The model removes 81 % of the error of the "always the mean" guess |
+| **MAE log** (mean absolute error) | $\dfrac{1}{n}\sum \lvert e_i \rvert$ | Average size of the error in log10 | 0.186 | $10^{0.186} \approx 1.53$: on average the prediction is off by a factor of about 1.5 |
+| **RMSE log** (root mean squared error) | $\sqrt{\dfrac{1}{n}\sum e_i^2}$ | Like MAE, but squaring makes large errors count more | 0.236 | Always ≥ MAE; the bigger the gap with MAE, the more the error comes from a few big misses |
+| **MAE €** | $\dfrac{1}{n}\sum \lvert \hat{v}_i - v_i \rvert$ | Average error in euros | 5.8 M€ | Easy to understand but dominated by stars (a 50 M€ miss on one star outweighs dozens of small misses); not the main metric |
+| **Median absolute % error** | $\text{median}\left(\dfrac{\lvert \hat{v}_i - v_i \rvert}{v_i}\right) \times 100$ | Relative error of the typical player | 32.8 % | Half of the players are predicted within ±33 % of their real value. The median ignores the few extreme cases |
+| **Within ×2** | $\dfrac{1}{n}\,\#\{\, i : \lvert e_i \rvert \le \log_{10} 2 \,\} \times 100$ | Share of players with prediction between half and double the real value | 80.9 % | 4 out of 5 players are predicted within a factor of 2 |
+
+**Why the main metrics are on the log scale:** an error of 2 M€ is huge for a 1 M€ player and negligible for a 100 M€ one. On the log scale an error of 0.3 means "×2 off" for every player, which matches how the model is trained.
+
+**Error by value range** (`error_by_value_range`): the mean signed error per group shows *direction*. Positive = overestimated, negative = underestimated. Cheap players are overestimated and stars underestimated (regression to the mean).
 
 ### Required outputs
 
 - Predicted vs. real value plot (log scale) with the perfect-prediction diagonal.
-- Learning curve: error vs. training set size (detects overfitting).
 - Comparison table of all models and baselines with the same metrics.
 
 ### Further analysis
