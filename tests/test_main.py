@@ -37,7 +37,8 @@ def test_evaluate_writes_reports(table, model_path, tmp_path):
     metrics = main.evaluate(table, model_path, reports)
     assert "Random Forest" in metrics.index and len(metrics) == 4
     for name in ("metrics_test.csv", "predicted_vs_real.png", "feature_importance.png",
-                 "age_curve.png", "error_by_value_range.csv", "largest_gaps.csv"):
+                 "age_curve.png", "error_by_value_range.csv", "largest_gaps.csv",
+                 "feature_importance.csv", "age_curve.csv"):
         assert (reports / name).is_file()
 
 

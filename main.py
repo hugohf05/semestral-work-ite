@@ -79,11 +79,15 @@ def evaluate(table, model_path=predictor.DEFAULT_MODEL_PATH, reports_dir=DEFAULT
                                       "Random Forest, test season 2025")
     importance = evaluation.feature_importance(forest, test[FEATURE_COLUMNS], test[TARGET_COLUMN])
     evaluation.plot_feature_importance(importance, reports_dir / "feature_importance.png")
+    importance.to_csv(reports_dir / "feature_importance.csv")
     # candidates["Linear regression"] was fitted inside compare_models, so it can be reused
     curves = {"Random Forest": evaluation.age_curve(forest, test[FEATURE_COLUMNS]),
               "Linear regression": evaluation.age_curve(candidates["Linear regression"],
                                                         test[FEATURE_COLUMNS])}
     evaluation.plot_age_curves(curves, reports_dir / "age_curve.png")
+    # Long format (model, age, value) so the app can draw one line per model
+    pd.concat(curves, names=["model"]).reset_index(level=0).to_csv(
+        reports_dir / "age_curve.csv", index=False)
     return metrics
 
 

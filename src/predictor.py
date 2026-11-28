@@ -7,6 +7,7 @@ predict in exactly the same way.
 from pathlib import Path
 
 import joblib
+import pandas as pd
 
 from src.features import FEATURE_COLUMNS
 
@@ -100,3 +101,41 @@ def undervalued_players(table, model, season, max_age=30, min_value=1e6, top=20)
     rows["ratio"] = rows["predicted_eur"] / rows["market_value_in_eur"]
     columns = ["name", "age", "position", "league", "market_value_in_eur", "predicted_eur", "ratio"]
     return rows.sort_values("ratio", ascending=False)[columns].head(top).reset_index(drop=True)
+
+
+PEER_FEATURES = ["age", "minutes", "goals_per90", "assists_per90",
+                 "team_points_per_game", "european_minutes"]
+
+
+def compare_with_peers(table, row):
+    """Compare a player with the typical player of the same position, league and season.
+
+    :param table: Player-season table
+    :param row: One-row DataFrame of the player (from ``find_player``)
+    :return: DataFrame indexed by feature with ``player``, ``peers_median`` and
+        ``peers`` (number of players in the group); the market value is the last row
+    """
+    player = row.iloc[0]
+    peers = table[(table["season"] == player["season"]) & (table["position"] == player["position"])
+                  & (table["league"] == player["league"])]
+    columns = PEER_FEATURES + ["market_value_in_eur"]
+    return pd.DataFrame({
+        "player": player[columns].astype(float),
+        "peers_median": peers[columns].median(),
+        "peers": len(peers),
+    })
+
+
+def what_if(model, row, feature, values):
+    """Predict the player's value while changing one feature and keeping the rest.
+
+    :param model: Fitted model that predicts log10 euros
+    :param row: One-row DataFrame of the player
+    :param feature: Name of the feature to change, e.g. ``"age"``
+    :param values: Values to try for that feature
+    :return: DataFrame with the feature values and ``predicted_eur``
+    """
+    # One copy of the player per value; only the chosen column changes
+    scenarios = pd.concat([row] * len(values), ignore_index=True)
+    scenarios[feature] = list(values)
+    return pd.DataFrame({feature: list(values), "predicted_eur": predict_value(model, scenarios)})

@@ -79,3 +79,49 @@ def test_undervalued_players_filters_and_sorts():
     result = predictor.undervalued_players(table, ConstantModel(), season=2025)
     assert result["name"].tolist() == ["Young cheap"]  # veteran, too cheap and 2024 removed
     assert result.loc[0, "ratio"] == pytest.approx(5)  # 10 M€ predicted / 2 M€ real
+
+
+def make_peer_table():
+    """Three 2025 LaLiga midfielders (the first is the player) and one forward."""
+    return pd.DataFrame({
+        "name": ["Player", "Peer 1", "Peer 2", "Forward"],
+        "season": [2025] * 4,
+        "position": ["Midfield", "Midfield", "Midfield", "Attack"],
+        "league": ["ES1"] * 4,
+        "age": [20.0, 24.0, 28.0, 30.0],
+        "minutes": [3000, 1000, 2000, 500],
+        "goals_per90": [0.5, 0.1, 0.2, 1.0],
+        "assists_per90": [0.2, 0.1, 0.1, 0.0],
+        "team_points_per_game": [2.0, 1.0, 1.5, 1.0],
+        "european_minutes": [900, 0, 0, 0],
+        "market_value_in_eur": [50e6, 5e6, 10e6, 1e6],
+        "matches": [34, 15, 25, 10],
+        "yellow_cards_per90": [0.1] * 4,
+        "red_cards": [0] * 4,
+    })
+
+
+def test_compare_with_peers_uses_same_position_league_and_season():
+    table = make_peer_table()
+    comparison = predictor.compare_with_peers(table, table.head(1))
+    assert comparison.loc["age", "player"] == 20
+    assert comparison.loc["age", "peers_median"] == 24  # 20, 24, 28: forward excluded
+    assert comparison.loc["market_value_in_eur", "peers_median"] == 10e6
+    assert (comparison["peers"] == 3).all()
+
+
+class AgeModel:
+    """Fake model: log10 value = age / 10."""
+
+    def predict(self, X):
+        """Return ``age / 10`` for every row."""
+        return X["age"].to_numpy() / 10
+
+
+def test_what_if_changes_only_the_chosen_feature():
+    table = make_peer_table()
+    row = table.head(1)
+    result = predictor.what_if(AgeModel(), row, "age", [60, 70])
+    assert result["age"].tolist() == [60, 70]
+    assert result["predicted_eur"].tolist() == pytest.approx([1e6, 1e7])
+    assert row["age"].item() == 20  # the original row is not modified
