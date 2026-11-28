@@ -92,6 +92,7 @@ Compares the four models on the 2025/26 season, which was never used for trainin
 | `metrics_test.csv` | Metrics of the 4 models |
 | `error_by_value_range.csv` | Error by value range (under-/overestimation) |
 | `largest_gaps.csv` | Players with the largest predicted / real ratio |
+| `feature_importance.csv`, `age_curve.csv` | Data for the app's interactive charts |
 | `predicted_vs_real.png`, `feature_importance.png`, `age_curve.png` | Plots |
 
 ### 3. Predict one player
@@ -117,9 +118,10 @@ streamlit run app.py               # opens http://localhost:8501
 
 | Page | Input | Output |
 | --- | --- | --- |
-| Player lookup | Name and season | Real vs. predicted value and the player's features |
+| Overview | — | What the program does, for whom, the three model levels and the test results |
+| Player lookup | Name and season | Real vs. predicted value, comparison with the typical player of the same position and league, and "what if" curves (value vs. age and vs. club strength) |
 | Manual estimate | Form: age, position, league, club points per game, minutes, goals… | Estimated value |
-| Model insights | — | Test metrics and plots from `reports/` (run `evaluate` first) |
+| Model insights | — | Interactive charts of the test results from `reports/` (run `evaluate` first): hover for player names, zoom |
 | Top undervalued | Maximum age, minimum value | Players of 2025 with the largest predicted / real ratio |
 
 ### Options
@@ -149,7 +151,7 @@ Metrics, methods and hyperparameters are explained in [docs/project_description.
 python test_main.py
 ```
 
-56 tests (unit and system), 87 % line coverage. Approach, rationale and sample input/output pairs: **[docs/tests.md](docs/tests.md)**.
+61 tests (unit and system), 90 % line coverage. Approach, rationale and sample input/output pairs: **[docs/tests.md](docs/tests.md)**.
 
 ## Limitations
 

@@ -15,7 +15,7 @@ pytestmark = pytest.mark.skipif(
     reason="needs data/raw and a trained model (python main.py train)",
 )
 APP_FILE = Path(__file__).resolve().parent.parent / "app.py"  # repository root
-PAGES = ["Player lookup", "Manual estimate", "Model insights", "Top undervalued"]
+PAGES = ["Overview", "Player lookup", "Manual estimate", "Model insights", "Top undervalued"]
 
 
 @pytest.fixture(scope="module")
@@ -41,3 +41,19 @@ def test_training_season_shows_warning(app):
     app.sidebar.radio[0].set_value("Player lookup").run()
     app.selectbox[0].set_value(2023).run()
     assert any("trained on season 2023" in warning.value for warning in app.warning)
+
+
+def test_overview_shows_test_results(app):
+    app.sidebar.radio[0].set_value("Overview").run()
+    assert [metric.label for metric in app.metric] == [
+        "Variation explained (R²)", "Players within ×2", "Typical error"]
+
+
+def test_player_lookup_explains_the_prediction(app):
+    app.sidebar.radio[0].set_value("Player lookup").run()
+    app.text_input[0].set_value("Pedri")
+    app.selectbox[0].set_value(2025).run()
+    assert not app.exception
+    assert any("Why this prediction" in header.value for header in app.subheader)
+    comparison = app.dataframe[0].value
+    assert "Team points per game" in comparison.index

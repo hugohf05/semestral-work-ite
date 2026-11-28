@@ -3,7 +3,7 @@
 All tests run with one command from the repository root:
 
 ```bash
-python test_main.py              # 56 tests, about 15 s
+python test_main.py              # 61 tests, about 15 s
 python test_main.py -k features  # only tests whose name contains "features"
 ```
 
@@ -35,10 +35,10 @@ Special attention goes to the two errors that would invalidate the results witho
 | Unit | `test_features.py` | 12 | Season aggregation, main league and club, valuation window, age, per-90, log, filters, team points per game, European minutes |
 | Unit / model | `test_models.py` | 8 | Time split, median baselines, unseen categories, models beat the global median, hyperparameter search |
 | Unit | `test_evaluation.py` | 9 | Every metric on hand-checked values, error by value range, gaps, importance, age curve, plots saved |
-| Unit | `test_predictor.py` | 9 | Save/load the model, name search (exact, partial, ambiguous, unknown), log → euros, undervalued filter |
+| Unit | `test_predictor.py` | 11 | Save/load the model, name search (exact, partial, ambiguous, unknown), log → euros, undervalued filter, comparison with peers, what-if scenarios |
 | System | `test_main.py` | 4 | `train` → `evaluate` → `predict` end to end on a synthetic table; CLI error message without traceback |
-| System | `test_app.py` | 6 | Each of the 4 app pages runs without exceptions; lookup shows the 3 values; warning for training seasons |
-| | **Total** | **56** | |
+| System | `test_app.py` | 9 | Each of the 5 app pages runs without exceptions; overview shows the test results; lookup shows the 3 values and the explanation; warning for training seasons |
+| | **Total** | **61** | |
 
 `test_app.py` runs the real app with Streamlit's `AppTest`. It needs the data in `data/raw/` and a trained model, so it is **skipped automatically** when they are missing.
 
@@ -81,10 +81,12 @@ Special attention goes to the two errors that would invalidate the results witho
 | `find_player(table, "Ped")` with "Pedri" and "Pedro" | `ValueError`: matches several players |
 | `find_player(table, "Messi")` | `ValueError`: no player-season found |
 | Model predicting log10 = 7 | 10,000,000 € |
+| `compare_with_peers` for a LaLiga midfielder aged 20 (other midfielders 24 and 28, one forward 30) | Peers' median age 24 (forward excluded), 3 players |
+| `what_if(model, row, "age", [60, 70])` with a model predicting age / 10 | 1 M€ and 10 M€; the player's row is not modified |
 | `load_model` without a trained model | `FileNotFoundError` saying `python main.py train` |
 | `python main.py --data-dir <empty folder> predict Pedri` | `Error: ...` on stderr, exit code 1, no traceback |
 | `main.train` on a synthetic table | Saved model trained on seasons up to 2024 only |
-| `main.evaluate` | 4 models in the metrics table; 6 files in `reports/` |
+| `main.evaluate` | 4 models in the metrics table; 8 files in `reports/` |
 
 ## Coverage
 
@@ -94,10 +96,10 @@ Measured with `pytest-cov` (lines of code executed by the tests):
 | --- | --- |
 | `src/features.py`, `src/models.py`, `src/evaluation.py`, `src/predictor.py` | 100 % |
 | `src/data_loader.py` | 97 % |
-| `app.py` | 88 % |
+| `app.py` | 94 % |
 | `main.py` | 83 % (the text printed by the command line is not checked) |
 | `src/data_quality.py` | 0 % (one-off script that reproduces the numbers in `data_quality.md`; not part of the program) |
-| **Total** | **87 %** |
+| **Total** | **90 %** |
 
 ## Known gaps
 
